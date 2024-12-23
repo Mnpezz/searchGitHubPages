@@ -2,6 +2,9 @@
 
 A simple web application that helps you discover GitHub Pages websites. This tool searches through GitHub repositories and displays those that have GitHub Pages enabled or are likely to have associated websites.
 
+## 🚀 Live Demo
+[View Live Demo](https://mnpezz.github.io/searchGitHubPages/)
+
 ## Features
 
 - 🔍 Real-time search functionality
