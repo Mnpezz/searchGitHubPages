@@ -70,7 +70,7 @@
     <script>
         const pages = [];
         
-        async function searchGitHubPages(query = 'nano') {
+        async function searchGitHubPages(query = 'nanocurrency') {
             try {
                 // First try to search for users
                 const userResponse = await fetch(
@@ -256,7 +256,7 @@
         window.addEventListener('load', async () => {
             setLoading(true);
             try {
-                const initialResults = await searchGitHubPages('nano');
+                const initialResults = await searchGitHubPages('nanocurrency');
                 renderPages(initialResults);
             } catch (error) {
                 console.error('Error fetching initial GitHub Pages:', error);
