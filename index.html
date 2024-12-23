@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHub Pages Directory</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .search-container {
+            margin: 20px 0;
+        }
+        #searchInput {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 4px;
+        }
+        .page-list {
+            list-style: none;
+            padding: 0;
+        }
+        .page-item {
+            background: white;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .page-item h3 {
+            margin: 0 0 10px 0;
+        }
+        .page-item p {
+            margin: 0;
+            color: #666;
+        }
+        .page-item a {
+            color: #0366d6;
+            text-decoration: none;
+        }
+        .page-item a:hover {
+            text-decoration: underline;
+        }
+        #searchInput:disabled {
+            background-color: #f5f5f5;
+            cursor: not-allowed;
+        }
+        .page-item small {
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <h1>📚 GitHub Pages Directory</h1>
+    
+    <div class="search-container">
+        <input type="text" id="searchInput" placeholder="Search pages...">
+    </div>
+
+    <ul class="page-list" id="pageList">
+        <!-- Pages will be populated here -->
+    </ul>
+
+    <script>
+        const pages = [];
+        
+        async function searchGitHubPages(query = 'nano') {
+            try {
+                // First try to search for users
+                const userResponse = await fetch(
+                    `https://api.github.com/search/users?q=${query}&per_page=5`,
+                    {
+                        headers: {
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    }
+                );
+
+                let userPages = [];
+                if (userResponse.ok) {
+                    const userData = await userResponse.json();
+                    // Get potential GitHub Pages for each user
+                    userPages = await Promise.all(userData.items.map(async user => {
+                        // Check for username.github.io repository
+                        try {
+                            const userRepoResponse = await fetch(
+                                `https://api.github.com/repos/${user.login}/${user.login}.github.io`,
+                                {
+                                    headers: {
+                                        'Accept': 'application/vnd.github.v3+json'
+                                    }
+                                }
+                            );
+                            if (userRepoResponse.ok) {
+                                const repoData = await userRepoResponse.json();
+                                return {
+                                    title: repoData.name,
+                                    url: `https://${user.login}.github.io`,
+                                    description: repoData.description || `Personal GitHub Pages site for ${user.login}`,
+                                    tags: repoData.topics || ['personal-site'],
+                                    stars: repoData.stargazers_count,
+                                    owner: user.login,
+                                    hasPages: true,
+                                    isUserPage: true
+                                };
+                            }
+                            return null; // Repository doesn't exist
+                        } catch (error) {
+                            // Only log if it's not a 404 error
+                            if (error.status !== 404) {
+                                console.log(`Error checking ${user.login}.github.io:`, error);
+                            }
+                            return null;
+                        }
+                    }));
+                }
+
+                // Then search repositories as before
+                const repoResponse = await fetch(
+                    `https://api.github.com/search/repositories?q=${query}+in:name+in:description+in:readme&per_page=100`,
+                    {
+                        headers: {
+                            'Accept': 'application/vnd.github.v3+json'
+                        }
+                    }
+                );
+                
+                if (!repoResponse.ok) {
+                    throw new Error(`GitHub API error: ${repoResponse.status}`);
+                }
+
+                const repoData = await repoResponse.json();
+                
+                if (!repoData.items) {
+                    throw new Error('No results found');
+                }
+
+                // Filter repositories that might have GitHub Pages
+                const potentialPages = repoData.items.filter(repo => {
+                    const hasGitHubPagesUrl = repo.homepage?.includes('github.io');
+                    const isGitHubPagesRepo = repo.name.toLowerCase().includes('.github.io');
+                    const mentionsPages = repo.description?.toLowerCase().includes('github pages');
+                    const hasDocsFolder = repo.default_branch === 'gh-pages' || repo.has_pages;
+                    const relevantTopics = ['website', 'webpage', 'documentation', 'docs', 'github-pages'];
+                    const hasRelevantTopic = repo.topics?.some(topic => 
+                        relevantTopics.includes(topic.toLowerCase())
+                    );
+
+                    return hasGitHubPagesUrl || isGitHubPagesRepo || mentionsPages || hasDocsFolder || hasRelevantTopic;
+                });
+
+                // Combine and filter out nulls
+                const allPages = [...userPages.filter(page => page !== null), ...potentialPages.map(repo => ({
+                    title: repo.name,
+                    url: repo.homepage || `https://${repo.owner.login}.github.io/${repo.name}`,
+                    description: repo.description || 'No description available',
+                    tags: repo.topics || [],
+                    stars: repo.stargazers_count,
+                    owner: repo.owner.login,
+                    hasPages: repo.has_pages,
+                    isUserPage: false
+                }))];
+
+                return allPages;
+
+            } catch (error) {
+                console.error('Error searching GitHub:', error);
+                throw new Error('Failed to search GitHub repositories. ' + 
+                    (error.status === 403 ? 'Rate limit exceeded. Please try again later.' : error.message));
+            }
+        }
+
+        function renderPages(pagesArray) {
+            const pageList = document.getElementById('pageList');
+            pageList.innerHTML = '';
+
+            if (pagesArray.length === 0) {
+                pageList.innerHTML = '<li class="page-item">No GitHub Pages found matching your search.</li>';
+                return;
+            }
+
+            pageList.innerHTML = `<li class="page-item">Found ${pagesArray.length} pages</li>`;
+
+            pagesArray.forEach(page => {
+                const li = document.createElement('li');
+                li.className = 'page-item';
+                li.innerHTML = `
+                    <h3><a href="${page.url}" target="_blank">${page.title}</a></h3>
+                    <p>${page.description}</p>
+                    <p><small>
+                        Owner: ${page.owner} | 
+                        Stars: ${page.stars} | 
+                        ${page.hasPages ? '📄 Has GitHub Pages | ' : ''}
+                        ${page.isUserPage ? '👤 Personal Site | ' : ''}
+                        Tags: ${page.tags.length ? page.tags.join(', ') : 'No tags'}
+                    </small></p>
+                `;
+                pageList.appendChild(li);
+            });
+        }
+
+        // Add loading indicator
+        function setLoading(isLoading) {
+            const searchInput = document.getElementById('searchInput');
+            if (isLoading) {
+                searchInput.setAttribute('disabled', 'disabled');
+                searchInput.placeholder = 'Loading...';
+            } else {
+                searchInput.removeAttribute('disabled');
+                searchInput.placeholder = 'Search GitHub Pages...';
+            }
+        }
+
+        // Debounce function to limit API calls
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // Search functionality
+        const searchHandler = debounce(async (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            setLoading(true);
+            try {
+                const results = await searchGitHubPages(searchTerm || 'nanocurrency');
+                if (results.length === 0) {
+                    document.getElementById('pageList').innerHTML = 
+                        '<li class="page-item">No GitHub Pages found matching your search.</li>';
+                } else {
+                    renderPages(results);
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('pageList').innerHTML = 
+                    `<li class="page-item">Error: ${error.message}</li>`;
+            }
+            setLoading(false);
+        }, 1000); // Increased debounce time to help with rate limiting
+
+        document.getElementById('searchInput').addEventListener('input', searchHandler);
+
+        // Initial load
+        window.addEventListener('load', async () => {
+            setLoading(true);
+            try {
+                const initialResults = await searchGitHubPages('nano');
+                renderPages(initialResults);
+            } catch (error) {
+                console.error('Error fetching initial GitHub Pages:', error);
+            }
+            setLoading(false);
+        });
+    </script>
+</body>
+</html> 
