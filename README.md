@@ -10,6 +10,8 @@ A simple web application that helps you discover GitHub Pages websites. This too
 - ⭐ Displays repository star count
 - 👤 Shows repository owner
 - 📄 Indicates if GitHub Pages is enabled
+- 🔎 Search for user pages (username.github.io)
+- 👥 Displays both personal and project pages
 
 ## Usage
 
@@ -24,6 +26,12 @@ A simple web application that helps you discover GitHub Pages websites. This too
 - Search by topic
 - Search by description
 - Search by README content
+- Search by GitHub username to find personal pages
+- Search results include:
+  - Personal GitHub Pages (username.github.io)
+  - Project GitHub Pages (username.github.io/project)
+  - Repositories with GitHub Pages enabled
+  - Repositories with documentation websites
 
 ## Technical Details
 
@@ -34,6 +42,8 @@ A simple web application that helps you discover GitHub Pages websites. This too
   - Have documentation or website-related topics
 - Limited to 100 results per search (GitHub API limitation)
 - Has rate limiting (60 requests per hour for unauthenticated users)
+- Searches both users and repositories
+- Automatically checks if found users have GitHub Pages
 
 ## Local Development
 
@@ -52,6 +62,8 @@ No build process or dependencies required!
 - Only shows public repositories
 - Limited to 100 results per search
 - May not detect all GitHub Pages websites
+- User search limited to 5 users per query (to minimize API calls)
+- Personal pages must follow the username.github.io format
 
 ## Contributing
 
